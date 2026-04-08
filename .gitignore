@@ -1,0 +1,4 @@
+avangard.db
+__pycache__/
+.env
+.venv/
