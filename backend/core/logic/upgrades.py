@@ -1,4 +1,7 @@
+import asyncio
+
 from backend.core.config import BASE_COSTS, UPGRADE_COEFFICIENT, UPGRADE_FOR_TOOLS
+from backend.db.database import DB_PATH, get_player, apply_upgrade_tank, apply_upgrade_technology
 
 """
 ЛОГИКА УЛУЧШЕНИЙ ТАНКОВ:
@@ -39,13 +42,53 @@ def get_tools_price(level: int) -> int:
     if level % 10 != 0:
         return 0
     return int((level * UPGRADE_FOR_TOOLS) / 10)
+
+
+async def process_upgrade(user_id, tank_type):
+    """ Получаем данные игрока из БД (get_player).
+        Считаем цену в запчастях и инструментах для следующего уровня (current_level + 1).
+        Проверяем, хватает ли ресурсов.
+        Если хватает — вызываем функцию add_resources
+            обновить уровень танка в БД.
+        Если не хватает — вернуть сообщение об ошибке.
+    """
+    # Чекаем юзера в БД
+    player = await get_player(user_id)
+    if not player:  return 
+    
+    # рассчитываем стоимость улучшения в запчастях и инструментах для следующего уровня
+    upgrade_cost = get_upgrade_cost(tank_type, player[f"{tank_type}_lvl"] + 1)  # в запчастях 
+    tools_cost = get_tools_price(player[f"{tank_type}_lvl"] + 1)  # в инструментах 
+    
+    if player["scrap"] >= upgrade_cost and player["tools"] >= tools_cost:
+        await apply_upgrade_tank(user_id, tank_type, upgrade_cost, tools_cost)
+        return print(f"✅ Танку типа {tank_type.upper()} успешно улучшен до уровня {player[f'{tank_type}_lvl'] + 1}!")
+
+    return print("У вас недостаточно ресурсов для улучшения!")
+
    
+async def process_upgrade_technology(user_id, tech_type):
+    """ процесс улучшения технологии 
+    """
+    # Чекаем юзера в БД
+    player = await get_player(user_id)
+    if not player:  return 
+
+    steel_cost = player[f"{tech_type}_upg"] + 1  # рассчитываем стоимость улучшения в стали
+
+    if player["steel"] >= steel_cost:
+        await apply_upgrade_technology(user_id, tech_type, steel_cost)
+        return print(f"✅ Технология {tech_type.upper()} успешно улучшена до уровня {player[f'{tech_type}_upg'] + 1}!")
+    return print("У вас недостаточно стали для улучшения!")
     
 if __name__ == "__main__":
     # тестируем расчет стоимости улучшений
-    for tank in ["lt", "st", "td", "tt"]:
-        print(f"Стоимость улучшений для {tank.upper()}:")
-        for lvl in [1, 10, 50, 51, 75, 100, 101, 110]:
-            if lvl % 10 == 0:
-                print(f"  Уровень {lvl}: {get_upgrade_cost(tank, lvl)} запчастей и {get_tools_price(lvl)} инструментов")
-            else: print(f"  Уровень {lvl}: {get_upgrade_cost(tank, lvl)} запчастей")
+    # for tank in ["lt", "st", "td", "tt"]:
+    #     print(f"Стоимость улучшений для {tank.upper()}:")
+    #     for lvl in [1, 10, 50, 51, 75, 100, 101, 110]:
+    #         if lvl % 10 == 0:
+    #             print(f"  Уровень {lvl}: {get_upgrade_cost(tank, lvl)} запчастей и {get_tools_price(lvl)} инструментов")
+    #         else: print(f"  Уровень {lvl}: {get_upgrade_cost(tank, lvl)} запчастей")
+
+    # asyncio.run(process_upgrade(12345678900, "lt"))
+    asyncio.run(process_upgrade_technology(123456789, "lt"))

@@ -60,6 +60,50 @@ async def add_resources(user_id, scrap: int = 0, tools: int = 0, steel: int = 0,
         """, (scrap, tools, steel, ac_gold, user_id))
         print(f"✅ Ресурсы добавлены игроку с ID {user_id}!")
         await db.commit()
+
+# обновляем уровень танка в БД
+async def update_tank_level(user_id, tank_type):
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(f"""
+                UPDATE players
+                SET {tank_type}_lvl = {tank_type}_lvl + 1,
+                    last_action = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+            """, (user_id,))
+            await db.commit()
+
+async def apply_upgrade_tank(user_id, tank_type, scrap_cost, tools_cost):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(f"""
+            UPDATE players
+            SET scrap = scrap - ?,
+                tools = tools - ?,
+                {tank_type}_lvl = {tank_type}_lvl + 1,
+                last_action = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+        """, (scrap_cost, tools_cost, user_id))
+        await db.commit()
+
+async def update_technology_level(user_id, tech_type, level):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(f"""
+            UPDATE players
+            SET {tech_type}_upg = ?,
+                last_action = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+        """, (level, user_id))
+        await db.commit()
+
+async def apply_upgrade_technology(user_id, tech_type, steel_cost):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(f"""
+            UPDATE players
+            SET steel = steel - ?,
+                {tech_type}_upg = {tech_type}_upg + 1,
+                last_action = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+        """, (steel_cost, user_id))
+        await db.commit()
                          
 if __name__ == "__main__":
     # инициализируем базу данных (раскомментировать при первом запуске)
